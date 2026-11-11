@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=CADLite Viewer
+GenericName=DWG/DXF Viewer
+Comment=View, measure and convert DWG and DXF drawings
+Exec=cadlite %f
+Icon=cadlite
+Terminal=false
+Categories=Graphics;Engineering;Viewer;
+MimeType=image/vnd.dwg;image/vnd.dxf;image/x-dwg;image/x-dxf;application/acad;application/x-acad;application/dxf;application/x-dxf;application/x-autocad;
+StartupWMClass=cadlite
+Keywords=CAD;DWG;DXF;AutoCAD;drawing;

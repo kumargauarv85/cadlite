@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CADLite Viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="dark">
+<header id="bar">
+  <div class="grp">
+    <button id="btnOpen" class="primary" title="Open a DWG or DXF file (Ctrl+O)">Open</button>
+    <button id="btnExport" title="Convert to another format or version (Ctrl+E)">Convert / Export</button>
+  </div>
+  <div class="grp tools" role="toolbar" aria-label="Tools">
+    <button data-tool="pan" class="on" title="Pan and zoom (Esc)">Pan</button>
+    <button data-tool="dist" title="Distance between two points (D)">Distance</button>
+    <button data-tool="path" title="Length along several points (P) – Enter or double-click to finish">Path</button>
+    <button data-tool="area" title="Area and perimeter (A) – Enter or double-click to finish">Area</button>
+    <button data-tool="angle" title="Angle: click first side, corner, second side (G)">Angle</button>
+    <button data-tool="radius" title="Radius of a circle or arc (R)">Radius</button>
+  </div>
+  <div class="grp">
+    <button id="btnSnap" class="on" title="Snap to end, mid, centre and intersection points (S)">Snap</button>
+    <button id="btnFit" title="Zoom to fit (F)">Fit</button>
+    <button id="btnBg" title="Switch dark / light background (B)">Light</button>
+  </div>
+  <div class="grp units">
+    <label>1 drawing unit =
+      <select id="selDraw" title="What one unit in the file stands for. Changing this rescales every measurement.">
+        <option value="mm">1 mm</option><option value="cm">1 cm</option>
+        <option value="m">1 m</option><option value="in">1 inch</option><option value="ft">1 foot</option>
+        <option value="custom" hidden>calibrated</option>
+      </select></label>
+    <label>Measure in
+      <select id="selDisp" title="Unit the results are converted to">
+        <option value="mm">mm</option><option value="cm">cm</option>
+        <option value="m">m</option><option value="in">inch</option><option value="ft">feet</option>
+      </select></label>
+    <button id="btnCal" title="Set the scale from a known length: click two points, then type the real distance">Calibrate</button>
+    <label>Decimals
+      <select id="selPrec"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+  </div>
+  <div id="fileName" class="fname"></div>
+</header>
+
+<main>
+  <aside id="side">
+    <section id="secLayers">
+      <h2>Layers <span id="layerCount" class="muted"></span></h2>
+      <div class="row">
+        <input id="layerFilter" type="search" placeholder="Filter layers" aria-label="Filter layers">
+      </div>
+      <div class="row btns">
+        <button id="layAll">All on</button><button id="layNone">All off</button><button id="layInv">Invert</button><button id="layReset" title="Back to the on/off state saved in the file">Reset</button>
+      </div>
+      <ul id="layerList"></ul>
+    </section>
+    <section id="secMeas">
+      <h2>Measurements</h2>
+      <div class="row btns"><button id="measCopy">Copy</button><button id="measClear">Clear</button></div>
+      <ul id="measList"></ul>
+      <p id="measEmpty" class="muted small">Pick a measuring tool, then click points on the drawing. Inside a layout viewport the result is in real model units.</p>
+    </section>
+  </aside>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="welcome">
+      <div class="card">
+        <h1>CADLite Viewer</h1>
+        <p>Open a <b>DWG</b> or <b>DXF</b> drawing, or drop a file here.</p>
+        <button id="btnOpen2" class="primary big">Open drawing</button>
+        <p id="toolNote" class="muted small"></p>
+        <button id="engGo2" hidden>Set up DWG support</button>
+      </div>
+    </div>
+    <div id="busy" hidden><div class="spin"></div><span id="busyText">Working…</span></div>
+    <div id="toast" hidden></div>
+  </div>
+</main>
+
+<footer>
+  <div id="tabs" role="tablist" aria-label="Layouts"></div>
+  <div id="hint" class="muted"></div>
+  <div id="coords"></div>
+</footer>
+
+<dialog id="dlgExport">
+  <form method="dialog">
+    <h2>Convert / Export</h2>
+    <fieldset>
+      <legend>Change format or version</legend>
+      <p class="small muted" id="convSrc"></p>
+      <div class="frow">
+        <label>Format <select id="convFmt"><option value="DWG">DWG</option><option value="DXF">DXF (text)</option><option value="DXB">DXF (binary)</option></select></label>
+        <label>Version <select id="convVer">
+          <option value="ACAD2018">AutoCAD 2018–2026</option><option value="ACAD2013">AutoCAD 2013</option>
+          <option value="ACAD2010">AutoCAD 2010</option><option value="ACAD2007">AutoCAD 2007</option>
+          <option value="ACAD2004">AutoCAD 2004</option><option value="ACAD2000">AutoCAD 2000</option>
+          <option value="ACAD14">R14</option><option value="ACAD12">R12</option>
+        </select></label>
+        <button type="button" id="convGo" class="primary">Save converted file</button>
+      </div>
+      <p class="small" id="convTool"></p>
+      <div class="frow" id="engRow" hidden>
+        <button type="button" id="engGo" class="primary">Set up DWG support</button>
+        <span class="small muted" id="engMsg">One-time download of the free ODA File Converter (about 70 MB) from opendesign.com into CADLite's own folder. It is ODA's software, under ODA's terms.</span>
+      </div>
+      <details id="convSetup">
+        <summary>Use a converter you already have</summary>
+        <p class="small muted">DWG is a closed format, so reading and writing it needs a converter engine. The button above sets this up for you. If you already downloaded the <b>ODA File Converter</b> AppImage yourself, paste its full path here instead.</p>
+        <div class="frow"><input id="convPath" type="text" placeholder="/home/you/Apps/ODAFileConverter.AppImage" aria-label="Converter path"><button type="button" id="convPathSave">Use this path</button></div>
+      </details>
+    </fieldset>
+    <fieldset>
+      <legend>Quick exports (built in, no converter needed)</legend>
+      <div class="frow">
+        <button type="button" id="expSvg" title="Vector image of the current tab with visible layers">SVG (vector)</button>
+        <button type="button" id="expPng" title="High-resolution picture of the current view">PNG (image)</button>
+        <button type="button" id="expR12" title="Model-space geometry as a simple R12 DXF that nearly every CAD program opens">DXF R12 (geometry only)</button>
+      </div>
+    </fieldset>
+    <div class="frow end"><button id="dlgClose">Close</button></div>
+  </form>
+</dialog>
+
+<input id="file" type="file" accept=".dwg,.dxf,.DWG,.DXF" hidden>
+<script src="dxf.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
