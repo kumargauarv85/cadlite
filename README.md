@@ -1,28 +1,56 @@
-# CADLite Viewer 1.2.0
+<p align="center"><img src="screenshots/logo.png" width="120" alt="CADLite logo"></p>
 
-A light DWG/DXF viewer for Linux: layers on/off, Model and layout tabs, measuring
-(distance, path, area, angle, radius) with object snap, and format/version conversion.
+# CADLite Viewer (beta)
+
+**A free, lightweight DWG and DXF viewer for Linux.** Open a drawing, switch
+between Model and layout sheets, turn layers on and off, and take real
+measurements, without Windows, Wine or a CAD licence.
+
+![Measuring on a floor plan](screenshots/measure.png)
+
+## What it does
+
+- Opens **DWG** (R12 to 2018+) and **DXF**
+- **Model and layout tabs**, with viewports shown at their scale
+- **Layers**: on/off, filter, isolate, reset
+- **Measure** distance, path length, area, angle and radius, with snapping to
+  end, mid, centre and intersection points
+- **Units**: mm, cm, m, inch, feet, plus a Calibrate tool for drawings with an
+  unknown scale
+- **Convert** between DWG/DXF versions; export SVG and PNG
+- Runs locally: your drawings never leave your computer
+
+> **Beta.** Built for 2D review, not editing. Xrefs, 3D solids, images and true
+> hatch patterns are not shown yet (see Known limits). The code was written
+> with AI assistance. If a drawing opens wrongly, please open an
+> [issue](../../issues).
+
+| Layout sheet with viewport | One-click DWG setup |
+|---|---|
+| ![Layout tab](screenshots/layout.png) | ![DWG setup](screenshots/dwg-setup.png) |
 
 ## Install
 
-Debian / Ubuntu / Mint / Pop!_OS:
+Any Linux (Bazzite, Fedora, Arch, openSUSE ...), no root needed:
 
-    sudo apt install ./cadlite_1.2.0_all.deb
-
-Any other distribution (Fedora, openSUSE, Arch ...), no root needed:
-
+    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.2.0/cadlite-1.2.0-linux.tar.gz
     tar xzf cadlite-1.2.0-linux.tar.gz
     cd cadlite-1.2.0
-    ./install.sh              # installs into ~/.local
-    ./install.sh --uninstall  # removes it again
+    ./install.sh
+
+Ubuntu / Debian / Mint / Pop!_OS:
+
+    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.2.0/cadlite_1.2.0_all.deb
+    sudo apt install ./cadlite_1.2.0_all.deb
 
 Start it from the application menu ("CADLite Viewer"), by right-clicking a
-.dwg/.dxf file and choosing "Open With", or from a terminal: `cadlite plan.dwg`
+.dwg/.dxf file and choosing "Open With", or from a terminal: `cadlite plan.dwg`.
+To remove it: `./install.sh --uninstall` (or `sudo apt remove cadlite`).
 
 Requirements: Python 3.6+ (already on every mainstream distribution) and a web
-browser. With Chrome, Chromium, Brave, Edge or Vivaldi the viewer opens in its
-own app window; otherwise it opens in Firefox or your default browser.
-Nothing leaves your computer: the viewer talks only to a private service on 127.0.0.1.
+browser. With Chrome, Chromium, Brave, Edge or Vivaldi (native or Flatpak) the
+viewer opens in its own app window; otherwise it opens as a tab in Firefox or
+your default browser. The viewer talks only to a private service on 127.0.0.1.
 
 ## DWG files and version conversion
 
@@ -71,3 +99,7 @@ ACAD2010, ACAD2013, ACAD2018).
 MLINE are not drawn; 3D geometry is shown in plan. Hatch patterns are shown
 as a light tint, text uses a system font, line weights are not shown, and
 viewports are clipped to their rectangle and assumed to look straight down.
+
+## Licence
+
+MIT. The optional DWG engine (ODA File Converter) is separate software from the Open Design Alliance, downloaded by the user under ODA's own terms.
