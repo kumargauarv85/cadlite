@@ -20,7 +20,18 @@ import time
 import urllib.parse
 import urllib.request
 import webbrowser
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+
+try:
+    from http.server import ThreadingHTTPServer
+except ImportError:  # ThreadingHTTPServer was added in Python 3.7.
+    from http.server import HTTPServer
+    from socketserver import ThreadingMixIn
+
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        # Match the standard-library implementation so worker threads do not
+        # keep the process alive after the viewer server shuts down.
+        daemon_threads = True
 
 VERSION = "1.4.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
