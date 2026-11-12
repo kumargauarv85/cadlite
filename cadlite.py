@@ -22,7 +22,7 @@ import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.join(HERE, "web")
 CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "cadlite")
@@ -388,10 +388,93 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "Unexpected error: %s" % exc}, 500)
 
 
+def run_webview(url, title, prg):
+    """Show the viewer in a small native window (GTK + WebKitGTK). Returns 3 if those libraries are not available."""
+    os.environ.setdefault("WEBKIT_DISABLE_DMABUF_RENDERER", "1")  # avoids blank windows with some NVIDIA drivers
+    try:
+        import gi
+        try:
+            gi.require_version("Gtk", "4.0")
+            gi.require_version("WebKit", "6.0")
+            from gi.repository import GLib, Gtk, WebKit
+            gtk4 = True
+        except (ValueError, ImportError):
+            gi.require_version("Gtk", "3.0")
+            try:
+                gi.require_version("WebKit2", "4.1")
+            except ValueError:
+                gi.require_version("WebKit2", "4.0")
+            from gi.repository import GLib, Gtk, WebKit2 as WebKit
+            gtk4 = False
+    except Exception as exc:  # no PyGObject / WebKitGTK on this system
+        sys.stderr.write("%s: native window not available (%s); using a browser instead\n" % (prg, exc))
+        return 3
+    GLib.set_prgname(prg)
+    GLib.set_application_name(title)
+    try:
+        if gtk4:
+            Gtk.init()
+        else:
+            Gtk.init(None)
+    except Exception as exc:
+        sys.stderr.write("%s: cannot open a window (%s)\n" % (prg, exc))
+        return 3
+    loop = GLib.MainLoop()
+    win = Gtk.Window()
+    win.set_title(title)
+    win.set_default_size(1500, 900)
+    view = WebKit.WebView()
+
+    def decide(download, suggested):
+        folder = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD) or os.path.expanduser("~/Downloads")
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, os.path.basename(suggested) or "download")
+        download.set_allow_overwrite(True)
+        download.set_destination(path if gtk4 else GLib.filename_to_uri(path, None))
+        return True
+
+    def on_download(_src, download):
+        download.connect("decide-destination", decide)
+
+    try:
+        (view.get_network_session() if gtk4 else view.get_context()).connect("download-started", on_download)
+    except Exception:
+        pass
+    view.connect("notify::title", lambda v, _p: win.set_title(v.get_title() or title))
+    view.connect("close", lambda _v: loop.quit())
+
+    def closing(*_a):
+        view.try_close()  # lets the page warn about unsaved changes
+        return True
+
+    if gtk4:
+        win.set_child(view)
+        win.connect("close-request", closing)
+        view.load_uri(url)
+        win.present()
+    else:
+        win.add(view)
+        win.connect("delete-event", closing)
+        view.load_uri(url)
+        win.show_all()
+    loop.run()
+    return 0
+
+
 def open_window(url, mode):
     """Open the viewer. Prefer a Chromium-family app window, then Firefox, then the default browser."""
     if mode == "none":
-        return
+        return None
+    if mode == "app" and not os.environ.get("CADLITE_NO_NATIVE"):
+        try:
+            child = subprocess.Popen([sys.executable, os.path.abspath(__file__), "--webview", url], start_new_session=True)
+            try:
+                if child.wait(timeout=4) == 0:
+                    return child  # opened and already closed again
+            except subprocess.TimeoutExpired:
+                return child  # the native window is up
+        except OSError:
+            pass
     if mode != "browser":
         for exe in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "brave-browser",
                     "microsoft-edge", "microsoft-edge-stable", "vivaldi", "vivaldi-stable"):
@@ -442,6 +525,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="cadlite", description="CADLite Viewer - view, measure and convert DWG/DXF drawings.")
     ap.add_argument("file", nargs="?", help="DWG or DXF file to open")
     ap.add_argument("--browser", action="store_true", help="open in the default browser instead of an app window")
+    ap.add_argument("--webview", metavar="URL", help=argparse.SUPPRESS)
     ap.add_argument("--no-window", action="store_true", help="only start the service and print its address")
     ap.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     ap.add_argument("--convert", nargs=3, metavar=("OUT", "FORMAT", "VERSION"),
@@ -449,6 +533,8 @@ def main(argv=None):
     ap.add_argument("--setup-dwg", action="store_true", help="download the DWG converter engine and exit")
     ap.add_argument("--version", action="version", version="CADLite Viewer " + VERSION)
     args = ap.parse_args(argv)
+    if args.webview:
+        return run_webview(args.webview, "CADLite Viewer", "cadlite")
 
     if args.setup_dwg:
         Engine.start()
@@ -481,8 +567,13 @@ def main(argv=None):
     url = "http://127.0.0.1:%d/%s/" % (server.server_address[1], State.token)
     if args.no_window:
         print(url, flush=True)
-    open_window(url, "none" if args.no_window else "browser" if args.browser else "app")
+    child = open_window(url, "none" if args.no_window else "browser" if args.browser else "app")
     threading.Thread(target=watchdog, args=(server, 150), daemon=True).start()
+    if child is not None:  # native window: stop the service as soon as it is closed
+        def reap():
+            child.wait()
+            server.shutdown()
+        threading.Thread(target=reap, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

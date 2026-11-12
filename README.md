@@ -33,24 +33,27 @@ measurements, without Windows, Wine or a CAD licence.
 
 Any Linux (Bazzite, Fedora, Arch, openSUSE ...), no root needed:
 
-    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.3.0/cadlite-1.3.0-linux.tar.gz
-    tar xzf cadlite-1.3.0-linux.tar.gz
-    cd cadlite-1.3.0
+    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.4.0/cadlite-1.4.0-linux.tar.gz
+    tar xzf cadlite-1.4.0-linux.tar.gz
+    cd cadlite-1.4.0
     ./install.sh
 
 Ubuntu / Debian / Mint / Pop!_OS:
 
-    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.3.0/cadlite_1.3.0_all.deb
-    sudo apt install ./cadlite_1.3.0_all.deb
+    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.4.0/cadlite_1.4.0_all.deb
+    sudo apt install ./cadlite_1.4.0_all.deb
 
 Start it from the application menu ("CADLite Viewer"), by right-clicking a
 .dwg/.dxf file and choosing "Open With", or from a terminal: `cadlite plan.dwg`.
 To remove it: `./install.sh --uninstall` (or `sudo apt remove cadlite`).
 
-Requirements: Python 3.6+ (already on every mainstream distribution) and a web
-browser. With Chrome, Chromium, Brave, Edge or Vivaldi (native or Flatpak) the
-viewer opens in its own app window; otherwise it opens as a tab in Firefox or
-your default browser. The viewer talks only to a private service on 127.0.0.1.
+Requirements: Python 3.6+. CADLite opens in its own small native window when
+the system has GTK with WebKitGTK and PyGObject (standard on GNOME desktops,
+including Bazzite GNOME). Otherwise it uses a Chromium-family browser in app
+mode (Chrome, Chromium, Brave, Edge, Vivaldi; native or Flatpak), then Firefox
+or your default browser. `cadlite --browser` forces the browser. In the native
+window, saved and exported files go to your Downloads folder.
+The viewer talks only to a private service on 127.0.0.1.
 
 ## DWG files and version conversion
 
