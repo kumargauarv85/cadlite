@@ -10,7 +10,7 @@ const UNIT_LABEL = { mm: 'mm', cm: 'cm', m: 'm', in: 'in', ft: 'ft', none: '' };
 const INSUNITS = { 1: 'in', 2: 'ft', 4: 'mm', 5: 'cm', 6: 'm' };
 const HINTS = {
   pan: 'Drag to pan · scroll to zoom · double-click to fit',
-  dist: 'Distance: click two points',
+  dist: 'Distance: click two points, then move away and click to place the dimension line · drag any label later to move it',
   path: 'Path: click points · Enter or double-click to finish · Backspace removes the last point',
   area: 'Area: click the corners · Enter or double-click to finish',
   angle: 'Angle: click a point on the first side, then the corner, then the second side',
@@ -362,6 +362,21 @@ function label(c, x, y, text) {
   c.fillStyle = 'rgba(15,17,20,0.88)'; c.beginPath(); c.roundRect(x, y, w, 20, 4); c.fill();
   c.strokeStyle = ACCENT; c.lineWidth = 1; c.stroke();
   c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(text, x + 6, y + 10.5);
+  return [x, y, w, 20];
+}
+// signed distance of (x,y) from the line through a distance measurement's two points
+function offFrom(m, x, y) {
+  const a = m.pts[0], b = m.pts[1], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+  return (-dy * (x - a.x) + dx * (y - a.y)) / l;
+}
+// label with a user offset (m.lo, in drawing units) and a leader back to its anchor
+function placedLabel(c, m, ax, ay, text) {
+  let x = ax, y = ay;
+  if (m.lo) {
+    x += m.lo[0] * S.view.k; y -= m.lo[1] * S.view.k;
+    c.save(); c.strokeStyle = ACCENT; c.lineWidth = 1; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(ax, ay + 10); c.lineTo(x, y); c.stroke(); c.restore();
+  }
+  m._r = label(c, x, y, text);
 }
 function drawMeas(c, V, m, extra) {
   const pts = (extra ? m.pts.concat([extra]) : m.pts).map((p) => ap(V, p.x, p.y));
@@ -371,7 +386,20 @@ function drawMeas(c, V, m, extra) {
   if (m.type === 'radius') {
     c.beginPath(); c.arc(pts[0][0], pts[0][1], m.rs * S.view.k, 0, TAU); c.stroke();
     c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); c.lineTo(pts[0][0] + m.rs * S.view.k, pts[0][1]); c.stroke();
-    label(c, pts[0][0] + m.rs * S.view.k / 2, pts[0][1] - 14, r.main); return;
+    placedLabel(c, m, pts[0][0] + m.rs * S.view.k / 2, pts[0][1] - 14, r.main); return;
+  }
+  if (m.type === 'dist' && pts.length === 2 && m.off) {
+    // dimension style: extension lines out to an offset dimension line
+    const a = m.pts[0], b = m.pts[1], dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+    const nx = -dy / l * m.off, ny = dx / l * m.off, sg = m.off > 0 ? 1 : -1, ex = -dy / l * sg * 6 / S.view.k, ey = dx / l * sg * 6 / S.view.k;
+    const a2 = ap(V, a.x + nx, a.y + ny), b2 = ap(V, b.x + nx, b.y + ny), a3 = ap(V, a.x + nx + ex, a.y + ny + ey), b3 = ap(V, b.x + nx + ex, b.y + ny + ey);
+    c.lineWidth = 1; c.globalAlpha = 0.75; c.beginPath();
+    c.moveTo(pts[0][0], pts[0][1]); c.lineTo(a3[0], a3[1]); c.moveTo(pts[1][0], pts[1][1]); c.lineTo(b3[0], b3[1]); c.stroke(); c.globalAlpha = 1;
+    c.lineWidth = 1.6; c.beginPath(); c.moveTo(a2[0], a2[1]); c.lineTo(b2[0], b2[1]); c.stroke();
+    const ux = (b2[0] - a2[0]), uy = (b2[1] - a2[1]), ul = Math.hypot(ux, uy) || 1, tx = (ux / ul - uy / ul) * 5, ty = (uy / ul + ux / ul) * 5;
+    c.beginPath(); for (const q of [a2, b2]) { c.moveTo(q[0] - tx, q[1] - ty); c.lineTo(q[0] + tx, q[1] + ty); } c.stroke();
+    for (const q of pts) { c.beginPath(); c.arc(q[0], q[1], 2.5, 0, TAU); c.fill(); }
+    m._r = label(c, (a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2, r.main); return;
   }
   c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
   for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
@@ -384,13 +412,14 @@ function drawMeas(c, V, m, extra) {
   else if (m.type === 'angle') { lx = pts[1][0]; ly = pts[1][1] - 18; }
   else if (pts.length === 2) { lx = (pts[0][0] + pts[1][0]) / 2; ly = (pts[0][1] + pts[1][1]) / 2 - 14; }
   else { lx = pts[pts.length - 1][0]; ly = pts[pts.length - 1][1] - 18; }
-  label(c, lx, ly, r.main);
+  if (m.type === 'dist' && pts.length === 2) m._r = label(c, lx, ly, r.main); else placedLabel(c, m, lx, ly, r.main);
 }
 function drawOverlay(c, V) {
   const sp = space();
   for (const m of sp.meas) drawMeas(c, V, m, null);
-  if (S.pending) drawMeas(c, V, S.pending, S.hover);
-  if (S.hover && S.hover.t && S.tool !== 'pan' && S.tool !== 'radius') {
+  if (S.pending && S.pending.placing) { if (S.hover) S.pending.off = offFrom(S.pending, S.hover.x, S.hover.y); drawMeas(c, V, S.pending, null); }
+  else if (S.pending) drawMeas(c, V, S.pending, S.hover);
+  if (S.hover && S.hover.t && S.tool !== 'pan' && S.tool !== 'radius' && !(S.pending && S.pending.placing)) {
     const p = ap(V, S.hover.x, S.hover.y), t = S.hover.t, x = p[0], y = p[1];
     c.strokeStyle = '#3df58a'; c.lineWidth = 2; c.beginPath();
     if (t === 'end' || t === 'node') c.rect(x - 6, y - 6, 12, 12);
@@ -404,7 +433,7 @@ function drawOverlay(c, V) {
 }
 function finishPending(force) {
   const m = S.pending; if (!m) return;
-  const pts = m.pts;
+  const pts = m.pts; delete m.placing;
   while (pts.length > 1 && Math.hypot(pts[pts.length - 1].x - pts[pts.length - 2].x, pts[pts.length - 1].y - pts[pts.length - 2].y) * S.view.k < 1.5) pts.pop();
   const need = m.type === 'area' ? 3 : m.type === 'angle' ? 3 : 2;
   S.pending = null;
@@ -427,19 +456,34 @@ cv.addEventListener('pointerdown', (e) => {
   if (!S.doc) return;
   cv.setPointerCapture(e.pointerId);
   drag = { x: e.offsetX, y: e.offsetY, cx: S.view.cx, cy: S.view.cy, moved: false, btn: e.button };
+  const hit = e.button === 0 && !S.pending ? labelAt(e.offsetX, e.offsetY) : null;
+  if (hit) { drag.meas = hit; drag.lo = hit.lo ? hit.lo.slice() : [0, 0]; }
 });
 cv.addEventListener('pointermove', (e) => {
   if (!S.doc) return;
   if (drag) {
     const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) > 4) { drag.moved = true; cv.style.cursor = 'grabbing'; }
+    if (drag.moved && drag.meas) {
+      const m = drag.meas, v = S.view;
+      if (m.type === 'dist' && m.pts.length === 2) m.off = offFrom(m, v.cx + (e.offsetX - S.W / 2) / v.k, v.cy - (e.offsetY - S.H / 2) / v.k);
+      else m.lo = [drag.lo[0] + dx / v.k, drag.lo[1] - dy / v.k];
+      redraw(); return;
+    }
     if (drag.moved) { S.view.cx = drag.cx - dx / S.view.k; S.view.cy = drag.cy + dy / S.view.k; redraw(); return; }
   }
-  const pk = S.tool === 'pan' || S.tool === 'radius' ? pick0(e.offsetX, e.offsetY) : pick(e.offsetX, e.offsetY);
+  const placing = S.pending && S.pending.placing;
+  if (!drag) cv.style.cursor = !S.pending && labelAt(e.offsetX, e.offsetY) ? 'move' : '';
+  const pk = S.tool === 'pan' || S.tool === 'radius' || placing ? pick0(e.offsetX, e.offsetY) : pick(e.offsetX, e.offsetY);
   S.hover = pk;
   showCoords(pk);
   if (S.tool !== 'pan') redraw();
 });
+function labelAt(x, y) {
+  const sp = space(); if (!sp) return null;
+  for (let i = sp.meas.length - 1; i >= 0; i--) { const r = sp.meas[i]._r; if (r && x >= r[0] && x <= r[0] + r[2] && y >= r[1] && y <= r[1] + r[3]) return sp.meas[i]; }
+  return null;
+}
 function pick0(sx, sy) { const s = S.snap; S.snap = false; const r = pick(sx, sy); S.snap = s; return r; }
 function showCoords(p) {
   if (!p) { $('coords').textContent = ''; return; }
@@ -458,11 +502,17 @@ cv.addEventListener('pointerup', (e) => {
     space().meas.push({ type: 'radius', pts: [{ x: a.x, y: a.y }], r: a.r, rs: a.rs, paper: a.paper });
     refreshMeasList(); redraw(); return;
   }
+  if (S.pending && S.pending.placing) {
+    const q = pick0(e.offsetX, e.offsetY), o = offFrom(S.pending, q.x, q.y);
+    S.pending.off = Math.abs(o) * S.view.k < 6 ? 0 : o;
+    finishPending(false); return;
+  }
   const p = pick(e.offsetX, e.offsetY);
   if (!S.pending) S.pending = { type: S.tool, pts: [] };
   S.pending.pts.push(p);
   const m = S.pending;
-  if ((m.type === 'dist' && m.pts.length === 2) || (m.type === 'angle' && m.pts.length === 3)) finishPending(false);
+  if (m.type === 'dist' && m.pts.length === 2) { m.placing = true; m.off = 0; }
+  else if (m.type === 'angle' && m.pts.length === 3) finishPending(false);
   redraw();
 });
 cv.addEventListener('dblclick', () => { if (!S.doc) return; if (S.tool === 'pan') fit(); else if (S.pending) finishPending(true); });

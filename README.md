@@ -33,15 +33,15 @@ measurements, without Windows, Wine or a CAD licence.
 
 Any Linux (Bazzite, Fedora, Arch, openSUSE ...), no root needed:
 
-    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.2.0/cadlite-1.2.0-linux.tar.gz
-    tar xzf cadlite-1.2.0-linux.tar.gz
-    cd cadlite-1.2.0
+    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.3.0/cadlite-1.3.0-linux.tar.gz
+    tar xzf cadlite-1.3.0-linux.tar.gz
+    cd cadlite-1.3.0
     ./install.sh
 
 Ubuntu / Debian / Mint / Pop!_OS:
 
-    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.2.0/cadlite_1.2.0_all.deb
-    sudo apt install ./cadlite_1.2.0_all.deb
+    curl -LO https://github.com/kumargauarv85/cadlite/releases/download/v1.3.0/cadlite_1.3.0_all.deb
+    sudo apt install ./cadlite_1.3.0_all.deb
 
 Start it from the application menu ("CADLite Viewer"), by right-clicking a
 .dwg/.dxf file and choosing "Open With", or from a terminal: `cadlite plan.dwg`.
@@ -85,6 +85,9 @@ ACAD2010, ACAD2013, ACAD2018).
   double-click finishes, Esc cancels, Backspace removes the last point, S
   toggles snap. Inside a layout viewport, results are real model units at the
   viewport's scale; across the sheet they are paper units.
+* Placing a distance: after the two points, move the pointer away and click
+  to set the dimension line clear of the drawing (Enter keeps it on the
+  points). Drag any measurement label later to move it.
 * Units: "1 drawing unit =" says what one unit in the file stands for (read
   from the file when it states it, otherwise assumed mm); "Measure in" is the
   unit results are converted to. If numbers look wrong, press Calibrate, click
